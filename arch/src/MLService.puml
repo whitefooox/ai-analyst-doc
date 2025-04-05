@@ -1,0 +1,61 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
+!define DEVICONS2 https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons2
+!include DEVICONS/postgresql.puml
+!include DEVICONS/python.puml
+!include DEVICONS2/jupyter.puml
+!include ../../lib/Kafka.sprite
+!include ../../lib/natasha.sprite
+
+LAYOUT_WITH_LEGEND()
+
+System_Boundary(analysis_system, "Микросервис анализа данных") {
+    Container(kafka_consumer, "Kafka Consumer", "Python", "Чтение задач из топика анализа задач", $sprite="python")
+    
+    Container(data_fetcher, "Data Fetcher", "Python", "Получение данных для анализа", $sprite="python")
+    
+    Container_Boundary(preproc_boundary, "Предобработка данных") {
+        Container(prep1, "Фильтрация", "Regex", "Фильтрация от спама, рекламы и т.д.", $sprite="python")
+        Container(prep2, "Нормализация", "natasha", "Приведение слов к нормальной форме", $sprite="natasha")
+        Container(prep3, "Очистка", "nltk", "Удаление стоп-слов и мусора", $sprite="python")
+    }
+    
+    Container_Boundary(ml_boundary, "ML Обработка") {
+        Container(classifier, "Классификация", "Zero-shot Classification", "Распределение по заданным темам", $sprite="jupyter")
+        Container(clusterer, "Кластеризация", "BERTopic", "Автоматическое выделение тем", $sprite="jupyter")
+        Container(sentiment, "Сентимент-анализ", "RuBERT", "Определение эмоциональной окраски", $sprite="jupyter")
+    }
+    
+    Container(aggregator, "Results Aggregator", "Python", "Группировка по темам, расчет статистики, формирование ответа", $sprite="python")
+    
+    Container(kafka_producer, "Kafka Producer", "Python", "Отправка результатов в топик результатов анализа", $sprite="python")
+}
+
+System_Ext(kafka, "Apache Kafka", "Брокер сообщений", $sprite="kafka")
+ContainerDb(postgres, "PostgreSQL", "Основное хранилище данных", $sprite="postgresql")
+
+Rel_R(kafka, kafka_consumer, "Получает задачи", "analysis_tasks")
+Rel(kafka_consumer, data_fetcher, "Передача ID записей\n(включая метаданные задачи)")
+Rel(data_fetcher, postgres, "SQL запросы", "SQLAlchemy")
+Rel(postgres, data_fetcher, "Возврат данных")
+Rel_L(data_fetcher, prep1, "Сырые тексты")
+Rel(prep1, prep2, "Отфильтрованные данные")
+Rel(prep2, prep3, "Нормализованный текст")
+
+' Альтернативные пути обработки
+Rel_L(prep3, classifier, "Если заданы теги")
+Rel_D(prep3, clusterer, "Если теги не заданы")
+
+' Объединение результатов
+Rel_U(classifier, aggregator, "Результаты классификации")
+Rel_U(clusterer, aggregator, "Результаты кластеризации")
+Rel_U(sentiment, aggregator, "Оценки тональности")
+
+' Отправка результатов
+Rel_R(aggregator, kafka_producer, "Агрегированные данные")
+Rel(kafka_producer, kafka, "Отправка результатов", "analysis_results")
+
+SHOW_LEGEND()
+@enduml
