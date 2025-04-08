@@ -1,4 +1,5 @@
 @startuml
+scale 2
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 !define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
@@ -8,8 +9,6 @@
 !include DEVICONS2/jupyter.puml
 !include ../../lib/Kafka.sprite
 !include ../../lib/natasha.sprite
-
-LAYOUT_WITH_LEGEND()
 
 System_Boundary(analysis_system, "Микросервис анализа данных") {
     Container(kafka_consumer, "Kafka Consumer", "Python", "Чтение задач из топика анализа задач", $sprite="python")
@@ -37,7 +36,7 @@ System_Ext(kafka, "Apache Kafka", "Брокер сообщений", $sprite="ka
 ContainerDb(postgres, "PostgreSQL", "Основное хранилище данных", $sprite="postgresql")
 
 Rel_R(kafka, kafka_consumer, "Получает задачи", "analysis_tasks")
-Rel(kafka_consumer, data_fetcher, "Передача ID записей\n(включая метаданные задачи)")
+Rel_R(kafka_consumer, data_fetcher, "Передача ID записей\n(включая метаданные задачи)")
 Rel(data_fetcher, postgres, "SQL запросы", "SQLAlchemy")
 Rel(postgres, data_fetcher, "Возврат данных")
 Rel_L(data_fetcher, prep1, "Сырые тексты")
@@ -56,6 +55,4 @@ Rel_U(sentiment, aggregator, "Оценки тональности")
 ' Отправка результатов
 Rel_R(aggregator, kafka_producer, "Агрегированные данные")
 Rel(kafka_producer, kafka, "Отправка результатов", "analysis_results")
-
-SHOW_LEGEND()
 @enduml
